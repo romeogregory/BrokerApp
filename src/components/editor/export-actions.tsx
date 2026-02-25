@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Copy, Download, Check, Globe } from "lucide-react";
+import { Copy, Download, Check, Globe, Save, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ExportActionsProps {
@@ -11,7 +11,11 @@ interface ExportActionsProps {
   features: string[];
   propertyAddress: string;
   isPublished: boolean;
-  onTogglePublish: () => void;
+  isSaving?: boolean;
+  isPublishing?: boolean;
+  isDirty?: boolean;
+  onSave: () => void;
+  onPublish: () => void;
 }
 
 function formatAdvertText(
@@ -39,7 +43,11 @@ export function ExportActions({
   features,
   propertyAddress,
   isPublished,
-  onTogglePublish,
+  isSaving = false,
+  isPublishing = false,
+  isDirty = false,
+  onSave,
+  onPublish,
 }: ExportActionsProps) {
   const [copied, setCopied] = useState(false);
 
@@ -77,8 +85,25 @@ export function ExportActions({
     URL.revokeObjectURL(url);
   }
 
+  const canSave = isDirty && !isSaving && title.trim() !== "" && description.trim() !== "";
+
   return (
     <div className="flex flex-wrap items-center gap-[var(--space-2)]">
+      <Button
+        variant="default"
+        size="sm"
+        onClick={onSave}
+        disabled={!canSave}
+        className="gap-[var(--space-2)]"
+      >
+        {isSaving ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : (
+          <Save className="size-3.5" />
+        )}
+        {isSaving ? "Opslaan..." : "Opslaan"}
+      </Button>
+
       <Button
         variant="outline"
         size="sm"
@@ -104,16 +129,21 @@ export function ExportActions({
       </Button>
 
       <Button
-        variant={isPublished ? "secondary" : "default"}
+        variant={isPublished ? "secondary" : "outline"}
         size="sm"
-        onClick={onTogglePublish}
+        onClick={onPublish}
+        disabled={isPublished || isPublishing}
         className={cn(
           "gap-[var(--space-2)]",
           isPublished && "text-[var(--success)]"
         )}
       >
-        <Globe className="size-3.5" />
-        {isPublished ? "Gepubliceerd" : "Markeer als gepubliceerd"}
+        {isPublishing ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : (
+          <Globe className="size-3.5" />
+        )}
+        {isPublished ? "Gepubliceerd" : isPublishing ? "Publiceren..." : "Markeer als gepubliceerd"}
       </Button>
     </div>
   );
