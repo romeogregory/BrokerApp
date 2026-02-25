@@ -11,61 +11,112 @@ import { AdvertEditor } from "@/components/editor/advert-editor";
 import { PlatformPreview } from "@/components/editor/platform-preview";
 import { PlatformTabs } from "@/components/editor/platform-tabs";
 import { ExportActions } from "@/components/editor/export-actions";
-import { useProperties } from "@/hooks/use-properties";
-import { mockAdverts } from "@/lib/mock-data";
+import { useProperty } from "@/hooks/use-properties";
+import {
+  useAdvert,
+  useSaveAdvert,
+  usePublishAdvert,
+} from "@/hooks/use-adverts";
+import type { Advert, Property } from "@/lib/types";
 import { Platform, PropertyStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type MobileView = "edit" | "preview";
 
-export default function AdvertentiePage() {
-  const params = useParams<{ id: string }>();
-  const { getById } = useProperties();
-
-  const property = getById(params.id);
-  const advert = useMemo(
-    () => mockAdverts.find((a) => a.propertyId === params.id),
-    [params.id]
-  );
-
-  // Editor state
-  const [title, setTitle] = useState(advert?.title ?? "");
-  const [description, setDescription] = useState(advert?.description ?? "");
-  const [features, setFeatures] = useState<string[]>(
-    advert?.features ?? []
-  );
-  const [activePlatform, setActivePlatform] = useState<Platform>(
-    advert?.platform ?? Platform.Funda
-  );
-  const [isPublished, setIsPublished] = useState(
-    property?.status === PropertyStatus.Published
-  );
-
-  // Mobile toggle between edit and preview
-  const [mobileView, setMobileView] = useState<MobileView>("edit");
-
-  if (!property || !advert) {
-    return (
-      <div>
-        <Header title="Advertentie niet gevonden" />
-        <div className="px-[var(--space-8)] pb-[var(--space-8)]">
-          <p className="text-[14px] text-[var(--ink-secondary)]">
-            Deze advertentie bestaat niet of is nog niet gegenereerd.
-          </p>
-          <Link
-            href="/dashboard"
-            className="mt-[var(--space-4)] inline-flex items-center gap-[var(--space-2)] text-[14px] font-medium text-[var(--brand)] hover:text-[var(--brand-hover)]"
-          >
-            <ArrowLeft className="size-4" />
-            Terug naar dashboard
-          </Link>
+function EditorSkeleton() {
+  return (
+    <div className="flex h-dvh flex-col overflow-hidden">
+      {/* Header skeleton */}
+      <div className="shrink-0 border-b border-[var(--border)]">
+        <div className="flex items-center gap-[var(--space-4)] px-[var(--space-8)] pt-[var(--space-6)] pb-[var(--space-4)]">
+          <div className="size-5 animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-2)]" />
+          <div className="flex-1 space-y-[var(--space-2)]">
+            <div className="flex items-center gap-[var(--space-3)]">
+              <div className="h-6 w-64 animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-2)]" />
+              <div className="h-5 w-24 animate-pulse rounded-[var(--radius-full)] bg-[var(--surface-2)]" />
+            </div>
+            <div className="h-4 w-32 animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-2)]" />
+          </div>
+        </div>
+        <div className="flex gap-[var(--space-2)] px-[var(--space-8)] pb-[var(--space-4)]">
+          <div className="h-8 w-24 animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-2)]" />
+          <div className="h-8 w-28 animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-2)]" />
+          <div className="h-8 w-24 animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-2)]" />
         </div>
       </div>
+
+      {/* Split view skeleton */}
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 space-y-[var(--space-4)] border-r border-[var(--border)] p-[var(--space-6)]">
+          <div className="h-10 w-full animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-2)]" />
+          <div className="h-48 w-full animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-2)]" />
+          <div className="space-y-[var(--space-2)]">
+            <div className="h-8 w-full animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-2)]" />
+            <div className="h-8 w-full animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-2)]" />
+            <div className="h-8 w-3/4 animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-2)]" />
+          </div>
+        </div>
+        <div className="hidden flex-1 bg-[var(--surface-2)] p-[var(--space-6)] lg:block">
+          <div className="h-10 w-48 animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-3)]" />
+          <div className="mx-auto mt-[var(--space-4)] h-96 max-w-md animate-pulse rounded-[var(--radius-md)] bg-[var(--surface-3)]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Inner editor component — receives loaded data as props so state
+ *  initializes directly from props without useEffect. Re-keyed by
+ *  advert.id in the parent to reset form state on data changes. */
+function AdvertEditorView({
+  property,
+  advert,
+}: {
+  property: Property;
+  advert: Advert;
+}) {
+  const { saveAdvert, isSaving } = useSaveAdvert();
+  const { publishAdvert, isPublishing } = usePublishAdvert();
+
+  const [title, setTitle] = useState(advert.title);
+  const [description, setDescription] = useState(advert.description);
+  const [features, setFeatures] = useState<string[]>(advert.features);
+  const [activePlatform, setActivePlatform] = useState<Platform>(
+    advert.platform
+  );
+  const [mobileView, setMobileView] = useState<MobileView>("edit");
+
+  const isDirty = useMemo(() => {
+    return (
+      title !== advert.title ||
+      description !== advert.description ||
+      JSON.stringify(features) !== JSON.stringify(advert.features)
     );
+  }, [advert, title, description, features]);
+
+  const isPublished = property.status === PropertyStatus.Published;
+
+  async function handleSave() {
+    await saveAdvert({
+      propertyId: property.id,
+      title,
+      description,
+      features,
+      platform: activePlatform,
+      propertyAddress: property.address,
+    });
+  }
+
+  async function handlePublish() {
+    await publishAdvert({
+      propertyId: property.id,
+      propertyAddress: property.address,
+      platform: activePlatform,
+    });
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="flex h-dvh flex-col overflow-hidden">
       {/* Header */}
       <div className="shrink-0 border-b border-[var(--border)]">
         <div className="flex items-center gap-[var(--space-4)] px-[var(--space-8)] pt-[var(--space-6)] pb-[var(--space-4)]">
@@ -75,7 +126,7 @@ export default function AdvertentiePage() {
           >
             <ArrowLeft className="size-5" />
           </Link>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-[var(--space-3)]">
               <h1 className="truncate text-[20px] font-semibold tracking-[-0.01em] text-[var(--ink)]">
                 {property.address}, {property.city}
@@ -105,7 +156,11 @@ export default function AdvertentiePage() {
             features={features}
             propertyAddress={`${property.address}, ${property.postalCode} ${property.city}`}
             isPublished={isPublished}
-            onTogglePublish={() => setIsPublished((prev) => !prev)}
+            isSaving={isSaving}
+            isPublishing={isPublishing}
+            isDirty={isDirty}
+            onSave={handleSave}
+            onPublish={handlePublish}
           />
         </div>
 
@@ -177,5 +232,65 @@ export default function AdvertentiePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdvertentiePage() {
+  const params = useParams<{ id: string }>();
+  const { property, isLoading: propertyLoading } = useProperty(params.id);
+  const { advert, isLoading: advertLoading } = useAdvert(params.id);
+
+  const isLoading = propertyLoading || advertLoading;
+
+  if (isLoading) {
+    return <EditorSkeleton />;
+  }
+
+  // Property not found
+  if (!property) {
+    return (
+      <div>
+        <Header title="Advertentie niet gevonden" />
+        <div className="px-[var(--space-8)] pb-[var(--space-8)]">
+          <p className="text-[14px] text-[var(--ink-secondary)]">
+            Deze woning bestaat niet of is verwijderd.
+          </p>
+          <Link
+            href="/dashboard"
+            className="mt-[var(--space-4)] inline-flex items-center gap-[var(--space-2)] text-[14px] font-medium text-[var(--brand)] hover:text-[var(--brand-hover)]"
+          >
+            <ArrowLeft className="size-4" />
+            Terug naar dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Property exists but no advert generated yet
+  if (!advert) {
+    return (
+      <div>
+        <Header title={`${property.address}, ${property.city}`} />
+        <div className="px-[var(--space-8)] pb-[var(--space-8)]">
+          <p className="text-[14px] text-[var(--ink-secondary)]">
+            Advertentie nog niet gegenereerd. Ga naar de woning om een
+            advertentie te genereren.
+          </p>
+          <Link
+            href="/dashboard"
+            className="mt-[var(--space-4)] inline-flex items-center gap-[var(--space-2)] text-[14px] font-medium text-[var(--brand)] hover:text-[var(--brand-hover)]"
+          >
+            <ArrowLeft className="size-4" />
+            Terug naar dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Key by advert.id so form state resets when data refreshes after save
+  return (
+    <AdvertEditorView key={advert.id} property={property} advert={advert} />
   );
 }

@@ -50,6 +50,10 @@ export const queryKeys = {
     detail: (id: string) => ["properties", id] as const,
     recent: (limit: number) => ["properties", "recent", limit] as const,
   },
+  adverts: {
+    byProperty: (propertyId: string) =>
+      ["adverts", "byProperty", propertyId] as const,
+  },
   dashboard: {
     stats: ["dashboard", "stats"] as const,
   },
