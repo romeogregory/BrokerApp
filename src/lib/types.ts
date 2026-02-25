@@ -14,6 +14,8 @@ export enum Platform {
 
 export interface Property {
   id: string;
+  user_id?: string;
+  organization_id?: string | null;
   address: string;
   postalCode: string;
   city: string;
