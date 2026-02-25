@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageGallery, type ImageFile } from "@/components/upload/image-gallery";
@@ -11,8 +12,9 @@ import {
 } from "@/components/upload/property-form";
 import { GenerateButton } from "@/components/upload/generate-button";
 import { useGenerate } from "@/hooks/use-generate";
+import { useAuth } from "@/hooks/use-auth";
+import { useCreateProperty } from "@/hooks/use-properties";
 import { PropertyStatus } from "@/lib/types";
-import type { Property } from "@/lib/types";
 
 function isFormComplete(data: PropertyFormData, images: ImageFile[]): boolean {
   return (
@@ -30,38 +32,53 @@ function isFormComplete(data: PropertyFormData, images: ImageFile[]): boolean {
   );
 }
 
-function formToProperty(data: PropertyFormData, images: ImageFile[]): Property {
-  return {
-    id: `prop-${Date.now()}`,
-    address: data.address,
-    postalCode: data.postalCode,
-    city: data.city,
-    price: Number(data.price),
-    squareMeters: Number(data.squareMeters),
-    rooms: Number(data.rooms),
-    bedrooms: Number(data.bedrooms),
-    bathrooms: Number(data.bathrooms),
-    buildYear: Number(data.buildYear),
-    energyLabel: data.energyLabel,
-    status: PropertyStatus.Draft,
-    images: images.map((img) => img.previewUrl),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-}
-
 export default function NieuwPage() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [formData, setFormData] = useState<PropertyFormData>(emptyFormData);
   const [images, setImages] = useState<ImageFile[]>([]);
-  const { advert, isLoading, error, generate } = useGenerate();
+  const { advert, isLoading: isGenerating, error: generateError, generate } = useGenerate();
+  const { createProperty, isCreating, error: createError } = useCreateProperty();
+
+  const propertyId = useMemo(() => crypto.randomUUID(), []);
 
   const isReady = isFormComplete(formData, images);
+  const isLoading = isGenerating || isCreating;
+  const error = createError
+    ? createError instanceof Error
+      ? createError.message
+      : "Er ging iets mis bij het opslaan"
+    : generateError;
 
-  const handleGenerate = useCallback(() => {
-    if (!isReady) return;
-    const property = formToProperty(formData, images);
-    generate(property);
-  }, [isReady, formData, images, generate]);
+  const handleGenerate = useCallback(async () => {
+    if (!isReady || !user) return;
+
+    try {
+      const imageUrls = images.map((img) => img.storagePath ?? img.previewUrl);
+
+      const property = await createProperty({
+        id: propertyId,
+        userId: user.id,
+        address: formData.address,
+        postalCode: formData.postalCode,
+        city: formData.city,
+        price: Number(formData.price),
+        squareMeters: Number(formData.squareMeters),
+        rooms: Number(formData.rooms),
+        bedrooms: Number(formData.bedrooms),
+        bathrooms: Number(formData.bathrooms),
+        buildYear: Number(formData.buildYear),
+        energyLabel: formData.energyLabel,
+        status: PropertyStatus.Draft,
+        images: imageUrls,
+      });
+
+      generate(property);
+      router.push(`/advertentie/${property.id}`);
+    } catch {
+      // Error is handled via the createError state from the mutation
+    }
+  }, [isReady, user, images, createProperty, propertyId, formData, generate, router]);
 
   return (
     <div>
@@ -77,7 +94,12 @@ export default function NieuwPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ImageGallery images={images} onImagesChange={setImages} />
+              <ImageGallery
+                images={images}
+                onImagesChange={setImages}
+                userId={user?.id}
+                propertyId={propertyId}
+              />
             </CardContent>
           </Card>
 
