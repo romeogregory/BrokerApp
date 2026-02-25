@@ -1,53 +1,137 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
-import { ImagePlus, X } from "lucide-react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { ImagePlus, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  uploadPropertyImage,
+  deletePropertyImage,
+  validateFile,
+} from "@/lib/supabase/storage";
 
 interface ImageFile {
   id: string;
-  file: File;
+  file?: File;
   previewUrl: string;
+  storagePath?: string;
+  isUploading?: boolean;
 }
 
 interface ImageGalleryProps {
   images: ImageFile[];
   onImagesChange: (images: ImageFile[]) => void;
+  userId?: string;
+  propertyId?: string;
 }
 
 export type { ImageFile };
 
-export function ImageGallery({ images, onImagesChange }: ImageGalleryProps) {
+export function ImageGallery({
+  images,
+  onImagesChange,
+  userId,
+  propertyId,
+}: ImageGalleryProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imagesRef = useRef(images);
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+
+  const dismissErrors = useCallback(() => setErrors([]), []);
 
   const addFiles = useCallback(
     (files: FileList | File[]) => {
       const fileArray = Array.from(files);
-      const imageFiles = fileArray.filter((f) =>
-        f.type.startsWith("image/")
-      );
+      const validationErrors: string[] = [];
+      const validFiles: File[] = [];
 
-      const newImages: ImageFile[] = imageFiles.map((file) => ({
+      for (const file of fileArray) {
+        const error = validateFile(file);
+        if (error) {
+          validationErrors.push(`${file.name}: ${error}`);
+        } else {
+          validFiles.push(file);
+        }
+      }
+
+      if (validationErrors.length > 0) {
+        setErrors(validationErrors);
+        setTimeout(() => setErrors([]), 5000);
+      }
+
+      if (validFiles.length === 0) return;
+
+      const useStorage = userId && propertyId;
+
+      const newImages: ImageFile[] = validFiles.map((file) => ({
         id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         file,
         previewUrl: URL.createObjectURL(file),
+        isUploading: !!useStorage,
       }));
 
-      onImagesChange([...images, ...newImages]);
+      const updatedImages = [...imagesRef.current, ...newImages];
+      onImagesChange(updatedImages);
+
+      if (!useStorage) return;
+
+      for (const image of newImages) {
+        uploadPropertyImage(userId, propertyId, image.file!)
+          .then(({ url, path }) => {
+            const current = imagesRef.current;
+            const updated = current.map((img) => {
+              if (img.id !== image.id) return img;
+              // Revoke the blob URL to prevent memory leaks
+              if (img.previewUrl.startsWith("blob:")) {
+                URL.revokeObjectURL(img.previewUrl);
+              }
+              return {
+                ...img,
+                previewUrl: url,
+                storagePath: path,
+                isUploading: false,
+                file: undefined,
+              };
+            });
+            onImagesChange(updated);
+          })
+          .catch((err) => {
+            const current = imagesRef.current;
+            onImagesChange(current.filter((img) => img.id !== image.id));
+            // Revoke the blob URL on failure too
+            if (image.previewUrl.startsWith("blob:")) {
+              URL.revokeObjectURL(image.previewUrl);
+            }
+            setErrors((prev) => [
+              ...prev,
+              `${image.file?.name ?? "Bestand"}: ${err instanceof Error ? err.message : "Uploaden mislukt"}`,
+            ]);
+            setTimeout(() => setErrors([]), 5000);
+          });
+      }
     },
-    [images, onImagesChange]
+    [userId, propertyId, onImagesChange]
   );
 
   const removeImage = useCallback(
     (id: string) => {
-      const image = images.find((img) => img.id === id);
+      const image = imagesRef.current.find((img) => img.id === id);
       if (image) {
-        URL.revokeObjectURL(image.previewUrl);
+        if (image.previewUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(image.previewUrl);
+        }
+        if (image.storagePath) {
+          deletePropertyImage(image.storagePath).catch(() => {
+            // Deletion from storage failed silently — image is already removed from UI
+          });
+        }
       }
-      onImagesChange(images.filter((img) => img.id !== id));
+      onImagesChange(imagesRef.current.filter((img) => img.id !== id));
     },
-    [images, onImagesChange]
+    [onImagesChange]
   );
 
   const handleDragOver = useCallback(
@@ -94,6 +178,29 @@ export function ImageGallery({ images, onImagesChange }: ImageGalleryProps) {
 
   return (
     <div className="flex flex-col gap-[var(--space-4)]">
+      {/* Validation errors */}
+      {errors.length > 0 && (
+        <div
+          className="flex flex-col gap-[var(--space-1)] rounded-[var(--radius-md)] bg-[var(--destructive-subtle)] px-[var(--space-4)] py-[var(--space-3)]"
+          role="alert"
+        >
+          {errors.map((error, i) => (
+            <p
+              key={i}
+              className="text-[13px] text-[var(--destructive)]"
+            >
+              {error}
+            </p>
+          ))}
+          <button
+            onClick={dismissErrors}
+            className="mt-[var(--space-1)] self-start text-[12px] font-medium text-[var(--destructive)] underline"
+          >
+            Sluiten
+          </button>
+        </div>
+      )}
+
       {/* Thumbnail grid */}
       {images.length > 0 && (
         <div className="grid grid-cols-2 gap-[var(--space-3)] sm:grid-cols-3">
@@ -102,18 +209,25 @@ export function ImageGallery({ images, onImagesChange }: ImageGalleryProps) {
               key={image.id}
               className="group relative aspect-[4/3] overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)]"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- blob URLs from createObjectURL are not compatible with next/image */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- blob URLs and Supabase Storage URLs are not compatible with next/image */}
               <img
                 src={image.previewUrl}
-                alt={image.file.name}
+                alt={image.file?.name ?? "Afbeelding"}
                 className="h-full w-full object-cover"
               />
+              {/* Upload progress overlay */}
+              {image.isUploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-1)]/70">
+                  <Loader2 className="size-6 animate-spin text-[var(--brand)]" />
+                </div>
+              )}
               <Button
                 variant="destructive"
                 size="icon-xs"
                 className="absolute top-[var(--space-1)] right-[var(--space-1)] opacity-0 transition-opacity duration-150 group-hover:opacity-100"
                 onClick={() => removeImage(image.id)}
-                aria-label={`Verwijder ${image.file.name}`}
+                disabled={image.isUploading}
+                aria-label={`Verwijder ${image.file?.name ?? "afbeelding"}`}
               >
                 <X className="size-3" />
               </Button>
@@ -163,7 +277,7 @@ export function ImageGallery({ images, onImagesChange }: ImageGalleryProps) {
             Sleep foto&apos;s hierheen of klik om te uploaden
           </p>
           <p className="mt-[var(--space-1)] text-[12px] text-[var(--ink-tertiary)]">
-            JPG, PNG of WebP
+            JPG, PNG of WebP (max 10MB)
           </p>
         </div>
       </div>
@@ -172,7 +286,7 @@ export function ImageGallery({ images, onImagesChange }: ImageGalleryProps) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         multiple
         onChange={handleFileSelect}
         className="hidden"
