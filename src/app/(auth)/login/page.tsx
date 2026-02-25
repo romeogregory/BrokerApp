@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -12,13 +13,69 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    router.push("/dashboard");
+    setError("");
+
+    if (!email.trim()) {
+      setError("E-mailadres is verplicht");
+      return;
+    }
+    if (!password) {
+      setError("Wachtwoord is verplicht");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const supabase = createClient();
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        setError("Ongeldige inloggegevens");
+        return;
+      }
+
+      router.push("/dashboard");
+    } catch {
+      setError("Er ging iets mis. Probeer het opnieuw.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setError("");
+    setIsLoading(true);
+    try {
+      const supabase = createClient();
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+
+      if (authError) {
+        setError("Er ging iets mis. Probeer het opnieuw.");
+        setIsLoading(false);
+      }
+    } catch {
+      setError("Er ging iets mis. Probeer het opnieuw.");
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -47,6 +104,8 @@ export default function LoginPage() {
               placeholder="jan@makelaardij.nl"
               autoComplete="email"
               className="bg-[var(--surface-2)]"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -66,10 +125,17 @@ export default function LoginPage() {
               placeholder="********"
               autoComplete="current-password"
               className="bg-[var(--surface-2)]"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <Button type="submit" className="w-full">
-            Inloggen
+          {error && (
+            <p className="text-sm" style={{ color: "var(--destructive)" }}>
+              {error}
+            </p>
+          )}
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Bezig met inloggen..." : "Inloggen"}
           </Button>
           <div className="relative flex items-center gap-4">
             <div
@@ -87,7 +153,13 @@ export default function LoginPage() {
               style={{ backgroundColor: "var(--border-emphasis)" }}
             />
           </div>
-          <Button type="button" variant="outline" className="w-full">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={isLoading}
+            onClick={handleGoogleLogin}
+          >
             <svg
               className="mr-2 h-4 w-4"
               viewBox="0 0 24 24"
