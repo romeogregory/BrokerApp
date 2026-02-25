@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Plus, Menu, X, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { mockProperties } from "@/lib/mock-data";
+import { useAuth } from "@/hooks/use-auth";
+import { useRecentProperties } from "@/hooks/use-properties";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -15,11 +16,24 @@ const navLinks = [
   { href: "/nieuw", label: "Nieuwe advertentie", icon: Plus },
 ];
 
-const recentProperties = mockProperties.slice(0, 3);
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
 
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user } = useAuth();
+  const { properties: recentProperties, isLoading } = useRecentProperties(3);
+
+  const displayName = user?.user_metadata?.full_name ?? "Gebruiker";
+  const initials = getInitials(displayName);
 
   return (
     <>
@@ -102,23 +116,50 @@ export function Sidebar() {
             Recente woningen
           </p>
           <div className="mt-[var(--space-2)] flex flex-col gap-[var(--space-1)]">
-            {recentProperties.map((property) => (
-              <Link
-                key={property.id}
-                href={
-                  property.status === "draft"
-                    ? "/nieuw"
-                    : `/advertentie/${property.id}`
-                }
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-[var(--space-2)] rounded-[var(--radius-sm)] px-[var(--space-3)] py-[var(--space-2)] text-[13px] text-[var(--ink-secondary)] transition-colors duration-150 hover:bg-[var(--surface-2)]"
-              >
-                <Home className="size-3.5 shrink-0 text-[var(--ink-tertiary)]" />
-                <span className="truncate">
-                  {property.address}, {property.city}
-                </span>
-              </Link>
-            ))}
+            {isLoading ? (
+              <>
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-[var(--space-2)] rounded-[var(--radius-sm)] px-[var(--space-3)] py-[var(--space-2)]"
+                  >
+                    <div className="size-3.5 shrink-0 rounded-sm bg-[var(--surface-3)] animate-pulse" />
+                    <div className="h-3.5 flex-1 rounded-sm bg-[var(--surface-3)] animate-pulse" />
+                  </div>
+                ))}
+              </>
+            ) : recentProperties.length === 0 ? (
+              <div className="px-[var(--space-3)] py-[var(--space-2)]">
+                <p className="text-[13px] text-[var(--ink-tertiary)]">
+                  Nog geen woningen
+                </p>
+                <Link
+                  href="/nieuw"
+                  onClick={() => setMobileOpen(false)}
+                  className="mt-[var(--space-1)] inline-block text-[13px] font-medium text-[var(--brand)] hover:text-[var(--brand-hover)]"
+                >
+                  Eerste woning toevoegen
+                </Link>
+              </div>
+            ) : (
+              recentProperties.map((property) => (
+                <Link
+                  key={property.id}
+                  href={
+                    property.status === "draft"
+                      ? "/nieuw"
+                      : `/advertentie/${property.id}`
+                  }
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-[var(--space-2)] rounded-[var(--radius-sm)] px-[var(--space-3)] py-[var(--space-2)] text-[13px] text-[var(--ink-secondary)] transition-colors duration-150 hover:bg-[var(--surface-2)]"
+                >
+                  <Home className="size-3.5 shrink-0 text-[var(--ink-tertiary)]" />
+                  <span className="truncate">
+                    {property.address}, {property.city}
+                  </span>
+                </Link>
+              ))
+            )}
           </div>
         </div>
 
@@ -131,11 +172,11 @@ export function Sidebar() {
           <div className="flex items-center gap-[var(--space-3)] rounded-[var(--radius-sm)] px-[var(--space-3)] py-[var(--space-2)]">
             <Avatar>
               <AvatarFallback className="bg-[var(--brand-subtle)] text-[var(--brand)] text-[13px] font-medium">
-                JV
+                {initials}
               </AvatarFallback>
             </Avatar>
             <span className="text-[14px] font-medium text-[var(--ink)]">
-              Jan de Vries
+              {displayName}
             </span>
           </div>
         </div>
