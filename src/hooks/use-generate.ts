@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/supabase/queries";
+import { logQuery } from "@/lib/supabase/logger";
 import type { Property, Advert } from "@/lib/types";
 import { Platform, PropertyStatus } from "@/lib/types";
 
@@ -95,7 +96,9 @@ export function useGenerate(): UseGenerateReturn {
         .single();
 
       if (advertError) {
-        console.error("Failed to save advert:", advertError);
+        throw new Error(
+          `Advertentie opslaan mislukt: ${advertError.message}`
+        );
       }
 
       // Update property status to generated
@@ -105,10 +108,12 @@ export function useGenerate(): UseGenerateReturn {
         .eq("id", property.id);
 
       if (updateError) {
-        console.error("Failed to update property status:", updateError);
+        throw new Error(
+          `Woningsstatus bijwerken mislukt: ${updateError.message}`
+        );
       }
 
-      // Insert activity log entry
+      // Insert activity log entry (non-critical: log but don't throw)
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { error: activityError } = await supabase
@@ -122,21 +127,27 @@ export function useGenerate(): UseGenerateReturn {
           });
 
         if (activityError) {
-          console.error("Failed to insert activity log:", activityError);
+          logQuery({
+            table: "activity_log",
+            operation: "insert",
+            duration_ms: 0,
+            error_category: "unknown",
+            error_message: activityError.message,
+            error_code: activityError.code,
+            status: "error",
+          });
         }
       }
 
-      // Build advert object for UI
+      // Build advert object for UI (advertRow guaranteed non-null after error check)
       const resultAdvert: Advert = {
-        id: advertRow?.id ?? crypto.randomUUID(),
+        id: advertRow!.id,
         propertyId: property.id,
         title: generated.title,
         description: generated.description,
         features: generated.features,
         platform,
-        createdAt: advertRow?.created_at
-          ? new Date(advertRow.created_at)
-          : new Date(),
+        createdAt: new Date(advertRow!.created_at),
       };
 
       setAdvert(resultAdvert);
@@ -147,7 +158,10 @@ export function useGenerate(): UseGenerateReturn {
         queryKey: queryKeys.properties.detail(property.id),
       });
       queryClient.invalidateQueries({
-        queryKey: ["properties", "recent"],
+        queryKey: queryKeys.adverts.byProperty(property.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.activityFeed.all(10),
       });
     },
     onError: (err: Error) => {

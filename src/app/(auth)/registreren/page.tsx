@@ -106,10 +106,17 @@ export default function RegistrerenPage() {
       if (profileError) {
         // Retry once in case the trigger hasn't fired yet
         await new Promise((resolve) => setTimeout(resolve, 500));
-        await supabase
+        const { error: retryError } = await supabase
           .from("profiles")
           .update({ organization_id: org.id })
           .eq("id", user.id);
+
+        if (retryError) {
+          setError(
+            "Profiel koppelen mislukt. Neem contact op met support."
+          );
+          return;
+        }
       }
 
       router.push("/dashboard");

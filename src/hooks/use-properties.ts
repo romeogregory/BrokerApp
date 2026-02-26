@@ -50,12 +50,12 @@ export function useProperty(id: string | undefined) {
 export function useRecentProperties(limit = 3) {
   const supabase = createClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.properties.recent(limit),
     queryFn: () => getRecentProperties(supabase, limit),
   });
 
-  return { properties: data ?? [], isLoading };
+  return { properties: data ?? [], isLoading, error };
 }
 
 export function useCreateProperty() {
@@ -66,9 +66,6 @@ export function useCreateProperty() {
     mutationFn: (data: CreatePropertyInput) => createProperty(supabase, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.properties.all });
-      queryClient.invalidateQueries({
-        queryKey: ["properties", "recent"],
-      });
     },
   });
 
@@ -84,9 +81,6 @@ export function useUpdateProperty() {
       updateProperty(supabase, id, data),
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.properties.all });
-      queryClient.invalidateQueries({
-        queryKey: ["properties", "recent"],
-      });
       queryClient.invalidateQueries({
         queryKey: queryKeys.properties.detail(variables.id),
       });
@@ -104,9 +98,6 @@ export function useDeleteProperty() {
     mutationFn: (id: string) => deleteProperty(supabase, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.properties.all });
-      queryClient.invalidateQueries({
-        queryKey: ["properties", "recent"],
-      });
     },
   });
 
