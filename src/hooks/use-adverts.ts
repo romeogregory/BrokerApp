@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/supabase/queries";
 import { logQuery } from "@/lib/supabase/logger";
@@ -126,6 +127,11 @@ export function useSaveAdvert() {
         queryKey: queryKeys.activityFeed.all(10),
       });
     },
+    onError: () => {
+      toast.error("Advertentie opslaan mislukt", {
+        description: "Probeer het later opnieuw.",
+      });
+    },
   });
 
   return { saveAdvert: mutateAsync, isSaving: isPending, error };
@@ -188,6 +194,11 @@ export function usePublishAdvert() {
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.activityFeed.all(10),
+      });
+    },
+    onError: () => {
+      toast.error("Publiceren mislukt", {
+        description: "Probeer het later opnieuw.",
       });
     },
   });

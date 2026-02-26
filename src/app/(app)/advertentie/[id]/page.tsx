@@ -237,13 +237,36 @@ function AdvertEditorView({
 
 export default function AdvertentiePage() {
   const params = useParams<{ id: string }>();
-  const { property, isLoading: propertyLoading } = useProperty(params.id);
-  const { advert, isLoading: advertLoading } = useAdvert(params.id);
+  const { property, isLoading: propertyLoading, error: propertyError } = useProperty(params.id);
+  const { advert, isLoading: advertLoading, error: advertError } = useAdvert(params.id);
 
   const isLoading = propertyLoading || advertLoading;
 
   if (isLoading) {
     return <EditorSkeleton />;
+  }
+
+  // Fetch error
+  if (propertyError || advertError) {
+    return (
+      <div>
+        <Header title="Fout bij laden" />
+        <div className="px-[var(--space-8)] pb-[var(--space-8)]">
+          <div className="rounded-[var(--radius-md)] bg-[var(--destructive-subtle)] px-[var(--space-4)] py-[var(--space-3)] text-[14px] text-[var(--destructive)]">
+            {propertyError
+              ? "Woning kon niet worden geladen."
+              : "Advertentie kon niet worden geladen."}
+          </div>
+          <Link
+            href="/dashboard"
+            className="mt-[var(--space-4)] inline-flex items-center gap-[var(--space-2)] text-[14px] font-medium text-[var(--brand)] hover:text-[var(--brand-hover)]"
+          >
+            <ArrowLeft className="size-4" />
+            Terug naar dashboard
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   // Property not found
