@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
-import { TestQueryWrapper, createProperty, createPropertyRow } from "@/test-utils";
+import { TestQueryWrapper, createProperty } from "@/test-utils";
 import { PropertyStatus } from "@/lib/types";
 import type { Property } from "@/lib/types";
 

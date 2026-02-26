@@ -185,7 +185,6 @@ describe("useAdverts", () => {
       // The mock's thenable resolves to currentResponse at the time of await.
       // For this test, we set the response to success first, then after getUser, we set to error.
       let callCount = 0;
-      const originalThen = mock.chainable.then as unknown;
       mock.chainable.then = (resolve: (value: unknown) => void) => {
         callCount++;
         if (callCount <= 1) {

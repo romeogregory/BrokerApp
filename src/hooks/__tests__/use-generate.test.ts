@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { createMockSupabaseClient, TestQueryWrapper, createProperty } from "@/test-utils";
-import { Platform, PropertyStatus } from "@/lib/types";
-
 // Mock modules
 vi.mock("@/lib/supabase/client", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase/logger", () => ({ logQuery: vi.fn() }));
