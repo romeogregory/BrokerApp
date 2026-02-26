@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import {
   queryKeys,
@@ -67,6 +68,11 @@ export function useCreateProperty() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.properties.all });
     },
+    onError: () => {
+      toast.error("Woning aanmaken mislukt", {
+        description: "Probeer het later opnieuw.",
+      });
+    },
   });
 
   return { createProperty: mutateAsync, isCreating: isPending, error };
@@ -85,6 +91,11 @@ export function useUpdateProperty() {
         queryKey: queryKeys.properties.detail(variables.id),
       });
     },
+    onError: () => {
+      toast.error("Woning bijwerken mislukt", {
+        description: "Probeer het later opnieuw.",
+      });
+    },
   });
 
   return { updateProperty: mutateAsync, isUpdating: isPending, error };
@@ -98,6 +109,11 @@ export function useDeleteProperty() {
     mutationFn: (id: string) => deleteProperty(supabase, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.properties.all });
+    },
+    onError: () => {
+      toast.error("Woning verwijderen mislukt", {
+        description: "Probeer het later opnieuw.",
+      });
     },
   });
 

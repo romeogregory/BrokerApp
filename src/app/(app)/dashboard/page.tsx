@@ -49,9 +49,9 @@ function ActivityFeedSkeleton() {
 }
 
 export default function DashboardPage() {
-  const { properties } = useProperties();
-  const { stats, isLoading: statsLoading } = useDashboardStats();
-  const { activities, isLoading: feedLoading } = useActivityFeed(10);
+  const { properties, error: propertiesError } = useProperties();
+  const { stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
+  const { activities, isLoading: feedLoading, error: feedError } = useActivityFeed(10);
   const { user } = useAuth();
 
   const firstName = user?.user_metadata?.full_name?.split(" ")[0]
@@ -75,6 +75,10 @@ export default function DashboardPage() {
               <StatCardSkeleton />
               <StatCardSkeleton />
             </>
+          ) : statsError ? (
+            <div className="col-span-full rounded-[var(--radius-md)] bg-[var(--destructive-subtle)] px-[var(--space-4)] py-[var(--space-3)] text-[14px] text-[var(--destructive)]">
+              Statistieken konden niet worden geladen.
+            </div>
           ) : (
             <>
               <StatCard
@@ -112,7 +116,11 @@ export default function DashboardPage() {
             <h2 className="text-[20px] font-semibold tracking-[-0.01em] text-[var(--ink)]">
               Woningen
             </h2>
-            {!statsLoading && stats?.totalProperties === 0 ? (
+            {propertiesError ? (
+              <div className="mt-[var(--space-4)] rounded-[var(--radius-md)] bg-[var(--destructive-subtle)] px-[var(--space-4)] py-[var(--space-3)] text-[14px] text-[var(--destructive)]">
+                Woningen konden niet worden geladen.
+              </div>
+            ) : !statsLoading && stats?.totalProperties === 0 ? (
               <p className="mt-[var(--space-4)] text-[14px] text-[var(--ink-secondary)]">
                 Nog geen woningen toegevoegd. Begin met het uploaden van een woning.
               </p>
@@ -129,6 +137,10 @@ export default function DashboardPage() {
           <div>
             {feedLoading ? (
               <ActivityFeedSkeleton />
+            ) : feedError ? (
+              <div className="rounded-[var(--radius-md)] bg-[var(--destructive-subtle)] px-[var(--space-4)] py-[var(--space-3)] text-[14px] text-[var(--destructive)]">
+                Activiteit kon niet worden geladen.
+              </div>
             ) : activities.length === 0 ? (
               <div
                 className="rounded-[var(--radius-md)] bg-[var(--surface-1)] p-[var(--space-5)]"
