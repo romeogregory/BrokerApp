@@ -41,7 +41,3 @@ Thumbs.db
 .lifecycle-audit.json
 .worktrees/
 PLAN.md
-.scope-manifest.json
-.report/
-.playwright-mcp/
-.planning/
