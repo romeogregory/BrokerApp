@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/supabase/queries";
+import { logQuery } from "@/lib/supabase/logger";
 import { PropertyStatus } from "@/lib/types";
 import type { Advert, Platform } from "@/lib/types";
 
@@ -88,18 +89,31 @@ export function useSaveAdvert() {
         throw new Error(`Advertentie opslaan mislukt: ${error.message}`);
       }
 
-      // Create activity log entry
+      // Create activity log entry (non-critical: log but don't throw)
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
-        await supabase.from("activity_log").insert({
-          user_id: user.id,
-          type: "edited",
-          property_id: input.propertyId,
-          property_address: input.propertyAddress,
-          platform: input.platform,
-        });
+        const { error: activityError } = await supabase
+          .from("activity_log")
+          .insert({
+            user_id: user.id,
+            type: "edited",
+            property_id: input.propertyId,
+            property_address: input.propertyAddress,
+            platform: input.platform,
+          });
+        if (activityError) {
+          logQuery({
+            table: "activity_log",
+            operation: "insert",
+            duration_ms: 0,
+            error_category: "unknown",
+            error_message: activityError.message,
+            error_code: activityError.code,
+            status: "error",
+          });
+        }
       }
 
       return mapRowToAdvert(data as AdvertRow);
@@ -138,18 +152,31 @@ export function usePublishAdvert() {
         throw new Error(`Publiceren mislukt: ${updateError.message}`);
       }
 
-      // Create activity log entry
+      // Create activity log entry (non-critical: log but don't throw)
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
-        await supabase.from("activity_log").insert({
-          user_id: user.id,
-          type: "published",
-          property_id: input.propertyId,
-          property_address: input.propertyAddress,
-          platform: input.platform,
-        });
+        const { error: activityError } = await supabase
+          .from("activity_log")
+          .insert({
+            user_id: user.id,
+            type: "published",
+            property_id: input.propertyId,
+            property_address: input.propertyAddress,
+            platform: input.platform,
+          });
+        if (activityError) {
+          logQuery({
+            table: "activity_log",
+            operation: "insert",
+            duration_ms: 0,
+            error_category: "unknown",
+            error_message: activityError.message,
+            error_code: activityError.code,
+            status: "error",
+          });
+        }
       }
     },
     onSuccess: (_result, variables) => {
@@ -158,9 +185,6 @@ export function usePublishAdvert() {
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.properties.detail(variables.propertyId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["properties", "recent"],
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.activityFeed.all(10),

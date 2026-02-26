@@ -170,6 +170,7 @@ export async function getDashboardStats(
       .from("properties")
       .select("*", { count: "exact", head: true })
       .eq("status", "published")
+      .gte("created_at", previousMonth.start)
       .lt("created_at", previousMonth.end),
     supabase
       .from("adverts")
@@ -177,6 +178,22 @@ export async function getDashboardStats(
       .gte("created_at", previousMonth.start)
       .lt("created_at", previousMonth.end),
   ]);
+
+  // Check all query results for errors
+  const results = [
+    totalProps,
+    publishedProps,
+    advertsCurrent,
+    totalPropsPrev,
+    publishedPropsPrev,
+    advertsPrev,
+  ];
+  const firstError = results.find((r) => r.error);
+  if (firstError?.error) {
+    throw new Error(
+      `Dashboard statistieken ophalen mislukt: ${firstError.error.message}`
+    );
+  }
 
   const totalProperties = totalProps.count ?? 0;
   const published = publishedProps.count ?? 0;
