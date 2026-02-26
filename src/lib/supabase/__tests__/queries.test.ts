@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createMockSupabaseClient, createPropertyRow, resetFactories } from "@/test-utils";
-import { PropertyStatus, Platform } from "@/lib/types";
+import { PropertyStatus } from "@/lib/types";
 import {
   mapRowToProperty,
   queryKeys,

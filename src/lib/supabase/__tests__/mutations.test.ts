@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createMockSupabaseClient, createPropertyRow, resetFactories } from "@/test-utils";
 import { PropertyStatus } from "@/lib/types";
 import {
