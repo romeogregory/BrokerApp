@@ -1,6 +1,11 @@
 # Dependencies
 node_modules/
 
+# Planning
+.planning/
+.report/
+.playwright-mcp/
+
 # Next.js
 .next/
 out/
