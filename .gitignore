@@ -39,5 +39,6 @@ Thumbs.db
 # Workflow artifacts
 .claude-active-role
 .lifecycle-audit.json
+.scope-manifest.json
 .worktrees/
 PLAN.md
