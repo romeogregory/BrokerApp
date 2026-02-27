@@ -40,5 +40,10 @@ Thumbs.db
 .claude-active-role
 .lifecycle-audit.json
 .scope-manifest.json
+.quality-validation.json
+.review-approved.json
+.security-approved.json
+.e2e-approved.json
+.merge-gate.json
 .worktrees/
 PLAN.md
